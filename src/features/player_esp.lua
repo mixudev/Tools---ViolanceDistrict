@@ -43,15 +43,12 @@ return function(services, constants, state, Lib)
         bb.Enabled     = state.nameTitleEnabled
         bb.Parent      = Camera
 
-        -- Ultra-slim Pill Container
+        -- Ultra-slim Pill Container (Transparent)
         local bg = Instance.new("Frame")
-        bg.BackgroundColor3       = Color3.fromRGB(12, 12, 15)
-        bg.BackgroundTransparency = 0.25
+        bg.BackgroundTransparency = 1
         bg.BorderSizePixel        = 0
         bg.Size                   = UDim2.new(1, 0, 1, 0)
         bg.Parent                 = bb
-        Lib.addCorner(bg, 12)
-        Lib.addStroke(bg, espColor, 1, 0.7)
 
         -- Elegant Side Health Bar
         local healthBarBg = Instance.new("Frame")
