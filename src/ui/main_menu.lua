@@ -1,85 +1,86 @@
 return function(services, constants, state, Lib)
     local ScreenGui = Instance.new("ScreenGui")
-    ScreenGui.Name           = "VD_ESPMenu"
+    ScreenGui.Name           = "VD_ESPMenu_v2"
     ScreenGui.ResetOnSpawn   = false
     ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
     ScreenGui.Parent         = game.CoreGui
 
     local MainFrame = Instance.new("Frame")
     MainFrame.BackgroundColor3 = constants.COLORS.BACKGROUND
+    MainFrame.BackgroundTransparency = 0.08
     MainFrame.BorderSizePixel  = 0
     MainFrame.Position         = UDim2.new(0.4, 0, 0.3, 0)
-    MainFrame.Size             = UDim2.new(0, 320, 0, constants.FRAME_ORIGINAL_H)
+    MainFrame.Size             = UDim2.new(0, 270, 0, constants.FRAME_ORIGINAL_H) -- Narrower and Slimmer
     MainFrame.Active           = true
     MainFrame.Draggable        = true
     MainFrame.Parent           = ScreenGui
-    Lib.addCorner(MainFrame, 10)
-    Lib.addStroke(MainFrame, Color3.fromRGB(40, 40, 46))
+    Lib.addCorner(MainFrame, 8)
+    Lib.addStroke(MainFrame, Color3.fromRGB(255, 255, 255), 1, 0.94)
+
+    -- Subtle side accent
+    local sideAccent = Instance.new("Frame")
+    sideAccent.BackgroundColor3 = constants.COLORS.ACCENT_AZURE
+    sideAccent.BorderSizePixel  = 0
+    sideAccent.Size             = UDim2.new(0, 2, 1, 0)
+    sideAccent.ZIndex           = 2
+    sideAccent.Parent           = MainFrame
+    Lib.addCorner(sideAccent, 4)
 
     -- ── Title Bar ───────────────────────────────────────────
     local TitleBar = Instance.new("Frame")
     TitleBar.BackgroundTransparency = 1
-    TitleBar.BorderSizePixel  = 0
-    TitleBar.Size             = UDim2.new(1, 0, 0, 44)
+    TitleBar.Size             = UDim2.new(1, 0, 0, 48)
     TitleBar.Parent           = MainFrame
 
     local TitleLabel = Instance.new("TextLabel")
     TitleLabel.BackgroundTransparency = 1
-    TitleLabel.Position          = UDim2.new(0, 16, 0, 2)
-    TitleLabel.Size              = UDim2.new(0.65, 0, 0.55, 0)
+    TitleLabel.Position          = UDim2.new(0, 16, 0.5, -9)
+    TitleLabel.Size              = UDim2.new(0.65, 0, 0, 14)
     TitleLabel.Font              = Enum.Font.GothamBold
     TitleLabel.Text              = "VIOLANCE DISTRICT"
-    TitleLabel.TextColor3        = Color3.fromRGB(235, 235, 245)
+    TitleLabel.TextColor3        = constants.COLORS.SOFT_TEXT
     TitleLabel.TextSize          = 13
     TitleLabel.TextXAlignment    = Enum.TextXAlignment.Left
-    TitleLabel.ZIndex            = 2
     TitleLabel.Parent            = TitleBar
 
     local SubLabel = Instance.new("TextLabel")
     SubLabel.BackgroundTransparency = 1
-    SubLabel.Position         = UDim2.new(0, 16, 0.55, 0)
-    SubLabel.Size             = UDim2.new(0.65, 0, 0.42, 0)
+    SubLabel.Position         = UDim2.new(0, 16, 0.5, 6)
+    SubLabel.Size             = UDim2.new(0.65, 0, 0, 10)
     SubLabel.Font             = Enum.Font.Gotham
-    SubLabel.Text             = "ESP MENU  v2.1"
-    SubLabel.TextColor3       = Color3.fromRGB(80, 120, 185)
-    SubLabel.TextSize         = 10
+    SubLabel.Text             = "v2.2 MODULAR"
+    SubLabel.TextColor3       = Color3.fromRGB(120, 120, 135)
+    SubLabel.TextSize         = 9
     SubLabel.TextXAlignment   = Enum.TextXAlignment.Left
-    SubLabel.ZIndex           = 2
     SubLabel.Parent           = TitleBar
 
-    local MinimizeButton = Instance.new("TextButton")
-    MinimizeButton.BackgroundColor3 = Color3.fromRGB(55, 55, 62)
-    MinimizeButton.BorderSizePixel  = 0
-    MinimizeButton.Position         = UDim2.new(1, -52, 0.5, -10)
-    MinimizeButton.Size             = UDim2.new(0, 20, 0, 20)
-    MinimizeButton.Font             = Enum.Font.GothamBold
-    MinimizeButton.Text             = "—"
-    MinimizeButton.TextColor3       = Color3.fromRGB(180, 180, 185)
-    MinimizeButton.TextSize         = 12
-    MinimizeButton.AutoButtonColor  = false
-    MinimizeButton.ZIndex           = 3
-    MinimizeButton.Parent           = TitleBar
-    Lib.addCorner(MinimizeButton, 4)
-
     local CloseButton = Instance.new("TextButton")
-    CloseButton.BackgroundColor3 = Color3.fromRGB(155, 40, 40)
-    CloseButton.BorderSizePixel  = 0
-    CloseButton.Position         = UDim2.new(1, -26, 0.5, -10)
-    CloseButton.Size             = UDim2.new(0, 20, 0, 20)
+    CloseButton.BackgroundTransparency = 1
+    CloseButton.Position         = UDim2.new(1, -34, 0.5, -12)
+    CloseButton.Size             = UDim2.new(0, 24, 0, 24)
     CloseButton.Font             = Enum.Font.GothamBold
     CloseButton.Text             = "×"
-    CloseButton.TextColor3       = Color3.fromRGB(255, 215, 215)
-    CloseButton.TextSize         = 16
+    CloseButton.TextColor3       = Color3.fromRGB(160, 160, 175)
+    CloseButton.TextSize         = 20
     CloseButton.AutoButtonColor  = false
-    CloseButton.ZIndex           = 3
     CloseButton.Parent           = TitleBar
-    Lib.addCorner(CloseButton, 4)
+
+    local MinimizeButton = Instance.new("TextButton")
+    MinimizeButton.BackgroundTransparency = 1
+    MinimizeButton.Position         = UDim2.new(1, -64, 0.5, -12)
+    MinimizeButton.Size             = UDim2.new(0, 24, 0, 24)
+    MinimizeButton.Font             = Enum.Font.GothamBold
+    MinimizeButton.Text             = "—"
+    MinimizeButton.TextColor3       = Color3.fromRGB(160, 160, 175)
+    MinimizeButton.TextSize         = 16
+    MinimizeButton.AutoButtonColor  = false
+    MinimizeButton.Parent           = TitleBar
 
     -- ── Content Frame ─────────────────────────────────────────
     local ContentFrame = Instance.new("Frame")
     ContentFrame.BackgroundTransparency = 1
-    ContentFrame.Position = UDim2.new(0, 14, 0, 54)
-    ContentFrame.Size     = UDim2.new(1, -28, 1, -64)
+    ContentFrame.Position = UDim2.new(0, 12, 0, 56)
+    ContentFrame.Size     = UDim2.new(1, -24, 1, -68)
     ContentFrame.Parent   = MainFrame
 
     return {

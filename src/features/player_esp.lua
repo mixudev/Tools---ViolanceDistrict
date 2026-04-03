@@ -33,52 +33,69 @@ return function(services, constants, state, Lib)
         if state.espHeartbeatConn      then pcall(state.espHeartbeatConn.Disconnect,      state.espHeartbeatConn)      state.espHeartbeatConn      = nil end
     end
 
-    function ESP.buildBillboard(player, head, rootPart, espColor)
+    function ESP.buildBillboard(player, head, rootPart, espColor, isKiller)
         local bb = Instance.new("BillboardGui")
         bb.Adornee     = head or rootPart
-        bb.Size        = UDim2.new(0, 160, 0, 36)
-        bb.StudsOffset = Vector3.new(0, 3.2, 0)
+        bb.Size        = UDim2.new(0, 140, 0, 24)
+        bb.StudsOffset = Vector3.new(0, 3.0, 0)
         bb.AlwaysOnTop = true
         bb.MaxDistance = constants.ESP_MAX_DISTANCE
         bb.Enabled     = state.nameTitleEnabled
         bb.Parent      = Camera
 
+        -- Ultra-slim Pill Container
         local bg = Instance.new("Frame")
-        bg.BackgroundColor3       = Color3.fromRGB(10, 10, 14)
-        bg.BackgroundTransparency = 0.28
+        bg.BackgroundColor3       = Color3.fromRGB(12, 12, 15)
+        bg.BackgroundTransparency = 0.25
         bg.BorderSizePixel        = 0
-        bg.AnchorPoint            = Vector2.new(0.5, 0.5)
-        bg.Position               = UDim2.new(0.5, 0, 0.5, 0)
-        bg.Size                   = UDim2.new(0.92, 0, 0.78, 0)
+        bg.Size                   = UDim2.new(1, 0, 1, 0)
         bg.Parent                 = bb
-        Lib.addCorner(bg, 9)
-        Lib.addStroke(bg, espColor, 1.2)
+        Lib.addCorner(bg, 12)
+        Lib.addStroke(bg, espColor, 1, 0.7)
 
-        local dot = Instance.new("Frame")
-        dot.BackgroundColor3 = espColor
-        dot.BorderSizePixel  = 0
-        dot.AnchorPoint      = Vector2.new(0, 0.5)
-        dot.Position         = UDim2.new(0, 7, 0.5, 0)
-        dot.Size             = UDim2.new(0, 6, 0, 6)
-        dot.ZIndex           = 2
-        dot.Parent           = bg
-        Lib.addCorner(dot, 99)
+        -- Elegant Side Health Bar
+        local healthBarBg = Instance.new("Frame")
+        healthBarBg.BackgroundColor3 = Color3.fromRGB(35, 35, 40)
+        healthBarBg.BorderSizePixel  = 0
+        healthBarBg.Position         = UDim2.new(0, 5, 0.2, 0)
+        healthBarBg.Size             = UDim2.new(0, 2, 0.6, 0)
+        healthBarBg.Parent           = bg
+        Lib.addCorner(healthBarBg, 4)
+
+        local healthBar = Instance.new("Frame")
+        healthBar.BackgroundColor3 = constants.COLORS.HEALTH_GOOD
+        healthBar.BorderSizePixel  = 0
+        healthBar.Size             = UDim2.new(1, 0, 1, 0)
+        healthBar.Parent           = healthBarBg
+        Lib.addCorner(healthBar, 4)
+
+        -- Killer Glow Effect
+        if isKiller then
+            local glow = Instance.new("Frame")
+            glow.BackgroundColor3      = constants.COLORS.ESP_KILLER
+            glow.BackgroundTransparency= 0.88
+            glow.BorderSizePixel       = 0
+            glow.Size                  = UDim2.new(1.1, 0, 1.3, 0)
+            glow.AnchorPoint           = Vector2.new(0.5, 0.5)
+            glow.Position              = UDim2.new(0.5, 0, 0.5, 0)
+            glow.ZIndex                = -1
+            glow.Parent                = bg
+            Lib.addCorner(glow, 12)
+        end
 
         local nameLbl = Instance.new("TextLabel")
         nameLbl.Name                  = "NameLabel"
         nameLbl.BackgroundTransparency= 1
-        nameLbl.AnchorPoint           = Vector2.new(0, 0.5)
-        nameLbl.Position              = UDim2.new(0, 22, 0.5, 0)
-        nameLbl.Size                  = UDim2.new(1, -28, 1, 0)
-        nameLbl.Font                  = Enum.Font.GothamBold
-        nameLbl.Text                  = player.Name
-        nameLbl.TextColor3            = Color3.fromRGB(240, 240, 252)
-        nameLbl.TextSize              = 13
+        nameLbl.Position              = UDim2.new(0, 12, 0, 0)
+        nameLbl.Size                  = UDim2.new(1, -16, 1, 0)
+        nameLbl.Font                  = Enum.Font.GothamMedium
+        nameLbl.Text                  = player.Name:upper()
+        nameLbl.TextColor3            = constants.COLORS.SOFT_TEXT
+        nameLbl.TextSize              = 11
         nameLbl.TextXAlignment        = Enum.TextXAlignment.Left
-        nameLbl.TextTruncate          = Enum.TextTruncate.AtEnd
         nameLbl.Parent                = bg
 
-        return bb, nameLbl
+        return bb, nameLbl, healthBar
     end
 
     function ESP.buildESPForPlayer(player)
@@ -87,7 +104,8 @@ return function(services, constants, state, Lib)
             local char = player.Character
             if not char then return end
             local rootPart = char:FindFirstChild("HumanoidRootPart")
-            if not rootPart then return end
+            local human    = char:FindFirstChildOfClass("Humanoid")
+            if not rootPart or not human then return end
             local head = char:FindFirstChild("Head")
 
             local isKiller = char:FindFirstChild("Knife") ~= nil or char:FindFirstChild("Weapon") ~= nil
@@ -96,15 +114,16 @@ return function(services, constants, state, Lib)
             ESP.destroyPlayerESPObjects(player)
             state.espObjects[player] = {}
 
+            -- Elegant Thin Highlight
             local hl = Instance.new("Highlight")
             hl.FillColor           = espColor
-            hl.OutlineColor        = espColor
-            hl.FillTransparency    = 0.65
-            hl.OutlineTransparency = 0.2
+            hl.OutlineColor        = Color3.fromRGB(255, 255, 255)
+            hl.FillTransparency    = 0.8
+            hl.OutlineTransparency = 0.4
             hl.Parent              = char
             table.insert(state.espObjects[player], hl)
 
-            local bb, nameLbl = ESP.buildBillboard(player, head, rootPart, espColor)
+            local bb, nameLbl, hb = ESP.buildBillboard(player, head, rootPart, espColor, isKiller)
             table.insert(state.espObjects[player], bb)
 
             local renderConn
@@ -114,16 +133,23 @@ return function(services, constants, state, Lib)
                     return
                 end
                 local dist  = (Camera.CFrame.Position - rootPart.Position).Magnitude
-                local baseScale = math.clamp(280 / dist, 0.5, 1.8)
+                local baseScale = math.clamp(280 / dist, 0.4, 1.4)
                 
                 local killerMult = 1.0
-                if isKiller and dist < 70 then
-                    killerMult = 1.0 + ((70 - dist) / 70) * 0.4
+                if isKiller and dist < 80 then
+                    killerMult = 1.0 + ((80 - dist) / 80) * 0.5
                 end
                 
                 local finalScale = baseScale * killerMult
-                nameLbl.TextSize = math.floor(13 * finalScale)
+                nameLbl.TextSize = math.floor(11 * finalScale)
+                bb.Size = UDim2.new(0, math.floor(140 * finalScale), 0, math.floor(24 * finalScale))
                 bb.Enabled = state.nameTitleEnabled
+
+                -- Health update
+                local hpRatio = math.clamp(human.Health / human.MaxHealth, 0, 1)
+                hb.Size = UDim2.new(1, 0, hpRatio, 0)
+                hb.Position = UDim2.new(0, 0, 1 - hpRatio, 0)
+                hb.BackgroundColor3 = Color3.fromHSV(hpRatio * 0.35, 0.9, 0.9)
             end)
             table.insert(state.espRenderConns, renderConn)
         end)
