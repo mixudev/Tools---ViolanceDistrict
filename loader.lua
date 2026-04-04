@@ -87,6 +87,7 @@ local PlayerESP       = loadModule("features/player_esp")(services, constants, s
 local GenESP          = loadModule("features/generator_esp")(services, constants, state, Lib)
 local Movement        = loadModule("features/movement")(services, constants, state, Lib)
 local PlayerListLogic = loadModule("features/player_list_logic")(services, constants, state, Lib, PlayerListUI)
+local HookEscape      = loadModule("features/hook_escape")(services, constants, state, Lib)
 
 -- ╔══════════════════════════════════════════════════════╗
 -- ║  5. BUILD MENU CONTENT                                ║
@@ -137,6 +138,17 @@ state.shiftLockButton = Lib.createToggle(MainUI.ContentFrame, "Shift Lock (Auto-
     Lib.showToast(SG, state.shiftLockEnabled and "Auto-Run  ON" or "Auto-Run  OFF")
 end)
 
+Lib.createDivider(MainUI.ContentFrame)
+
+-- ── Survival section ──────────────────────────────────────────────────
+Lib.createSectionLabel(MainUI.ContentFrame, "Survival")
+
+-- Auto-tekan tombol escape saat digantung di hook.
+-- Manfaatkan anti-camp mechanic: jika killer camping, chance kabur = 100%
+state.autoEscapeButton = Lib.createToggle(MainUI.ContentFrame, "Auto Escape (Hook)", function()
+    HookEscape.toggleAutoEscape()
+    Lib.showToast(SG, state.autoEscapeEnabled and "Auto Escape  ON" or "Auto Escape  OFF")
+end)
 -- ╔══════════════════════════════════════════════════════╗
 -- ║  6. WINDOW CONTROLS                                   ║
 -- ╚══════════════════════════════════════════════════════╝
@@ -150,6 +162,9 @@ MainUI.CloseButton.MouseButton1Click:Connect(function()
     end
     if state.shiftLockConn then
         pcall(function() state.shiftLockConn:Disconnect() end)
+    end
+    if state.autoEscapeConn then
+        pcall(function() state.autoEscapeConn:Disconnect() end)
     end
     MainUI.ScreenGui:Destroy()
 end)

@@ -1,13 +1,14 @@
 return {
     -- ── Player ESP ─────────────────────────────────────────────────
     espEnabled            = false,
-    espObjects            = {},      -- [player] = {instances}
-    espCharConns          = {},      -- [player] = CharacterAdded connection
-    espRenderConns        = {},      -- [player] = RenderStepped connection (per-player, fixes memory leak)
+    espObjects            = {},
+    espCharConns          = {},
+    espRenderConns        = {},      -- [player] = RenderStepped connection
     espPlayerAddedConn    = nil,
     espPlayerRemovingConn = nil,
     espHeartbeatConn      = nil,
     espLastRefresh        = 0,
+    espButton             = nil,
 
     -- ── Name Title ─────────────────────────────────────────────────
     nameTitleEnabled      = true,
@@ -18,21 +19,23 @@ return {
     genESPObjects         = {},
     genHeartbeatConn      = nil,
     genButton             = nil,
-    genCachedObjects      = nil,     -- cached list of generator objects
+    genCachedObjects      = nil,
 
     -- ── Player List ────────────────────────────────────────────────
     playerListVisible     = false,
-    playerListFrames      = {},      -- [{frame, hbFill, hpLabel}]
-    playerListHealthConns = {},      -- [player] = HealthChanged connection (fixes memory leak)
+    playerListFrames      = {},
+    playerListHealthConns = {},
     playerListConn        = nil,
     playerListButton      = nil,
 
     -- ── Movement / Shift Lock ──────────────────────────────────────
-    shiftLockEnabled      = false,
-    shiftLockButton       = nil,
-    shiftLockConn         = nil,     -- Heartbeat loop connection
-    shiftLockOriginalSpeed = nil,    -- WalkSpeed backup (fallback method)
+    shiftLockEnabled       = false,
+    shiftLockButton        = nil,
+    shiftLockConn          = nil,
+    shiftLockOriginalSpeed = nil,
 
-    espButton             = nil,
-    genButton             = nil,
+    -- ── Hook Escape ────────────────────────────────────────────────
+    autoEscapeEnabled     = false,
+    autoEscapeButton      = nil,
+    autoEscapeConn        = nil,
 }
