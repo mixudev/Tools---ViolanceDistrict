@@ -5,7 +5,12 @@ local services = {
     TweenService     = game:GetService("TweenService"),
     Workspace        = game:GetService("Workspace"),
 }
+
 services.LocalPlayer = services.Players.LocalPlayer
-services.Camera      = services.Workspace.CurrentCamera
+
+-- Dynamic camera getter — avoids stale cached reference after workspace changes
+function services.getCamera()
+    return services.Workspace.CurrentCamera
+end
 
 return services

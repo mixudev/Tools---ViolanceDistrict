@@ -1,12 +1,19 @@
 return function(services, constants, state, Lib)
-    local Players = services.Players
-    local Camera = services.Camera
-    local RunService = services.RunService
+    local Players     = services.Players
+    local RunService  = services.RunService
     local LocalPlayer = services.LocalPlayer
 
     local ESP = {}
 
+    -- ── Destroy ESP objects for one player (also disconnects their renderConn) ──
     function ESP.destroyPlayerESPObjects(player)
+        -- Disconnect this player's render loop first
+        local rc = state.espRenderConns[player]
+        if rc then
+            pcall(function() rc:Disconnect() end)
+            state.espRenderConns[player] = nil
+        end
+        -- Destroy all ESP instances
         local objs = state.espObjects[player]
         if not objs then return end
         for _, obj in ipairs(objs) do
@@ -15,25 +22,39 @@ return function(services, constants, state, Lib)
         state.espObjects[player] = nil
     end
 
+    -- ── Disconnect everything and clear all ESP ──────────────────────
     function ESP.clearAllPlayerESP()
-        if state.espRenderConns then
-            for _, conn in ipairs(state.espRenderConns) do
-                if conn then pcall(conn.Disconnect, conn) end
-            end
+        -- Disconnect all per-player render connections
+        for _, conn in pairs(state.espRenderConns) do
+            if conn then pcall(function() conn:Disconnect() end) end
         end
         state.espRenderConns = {}
-        for player in pairs(state.espObjects) do ESP.destroyPlayerESPObjects(player) end
+
+        -- Destroy all ESP objects per player
+        for player in pairs(state.espObjects) do
+            local objs = state.espObjects[player]
+            if objs then
+                for _, obj in ipairs(objs) do
+                    if obj and obj.Parent then pcall(obj.Destroy, obj) end
+                end
+            end
+        end
         state.espObjects = {}
+
+        -- Disconnect character connections
         for _, conn in pairs(state.espCharConns) do
-            if conn then pcall(conn.Disconnect, conn) end
+            if conn then pcall(function() conn:Disconnect() end) end
         end
         state.espCharConns = {}
-        if state.espPlayerAddedConn    then pcall(state.espPlayerAddedConn.Disconnect,    state.espPlayerAddedConn)    state.espPlayerAddedConn    = nil end
-        if state.espPlayerRemovingConn then pcall(state.espPlayerRemovingConn.Disconnect, state.espPlayerRemovingConn) state.espPlayerRemovingConn = nil end
-        if state.espHeartbeatConn      then pcall(state.espHeartbeatConn.Disconnect,      state.espHeartbeatConn)      state.espHeartbeatConn      = nil end
+
+        if state.espPlayerAddedConn    then pcall(function() state.espPlayerAddedConn:Disconnect()    end) state.espPlayerAddedConn    = nil end
+        if state.espPlayerRemovingConn then pcall(function() state.espPlayerRemovingConn:Disconnect() end) state.espPlayerRemovingConn = nil end
+        if state.espHeartbeatConn      then pcall(function() state.espHeartbeatConn:Disconnect()      end) state.espHeartbeatConn      = nil end
     end
 
-    function ESP.buildBillboard(player, head, rootPart, espColor, isKiller)
+    -- ── Build billboard for a player ─────────────────────────────────
+    function ESP.buildBillboard(player, head, rootPart, isKiller)
+        local Camera = services.getCamera()
         local bb = Instance.new("BillboardGui")
         bb.Adornee     = head or rootPart
         bb.Size        = UDim2.new(0, 140, 0, 24)
@@ -43,14 +64,13 @@ return function(services, constants, state, Lib)
         bb.Enabled     = state.nameTitleEnabled
         bb.Parent      = Camera
 
-        -- Ultra-slim Pill Container (Transparent)
         local bg = Instance.new("Frame")
         bg.BackgroundTransparency = 1
         bg.BorderSizePixel        = 0
         bg.Size                   = UDim2.new(1, 0, 1, 0)
         bg.Parent                 = bb
 
-        -- Elegant Side Health Bar
+        -- Slim side health bar
         local healthBarBg = Instance.new("Frame")
         healthBarBg.BackgroundColor3 = Color3.fromRGB(35, 35, 40)
         healthBarBg.BorderSizePixel  = 0
@@ -66,35 +86,36 @@ return function(services, constants, state, Lib)
         healthBar.Parent           = healthBarBg
         Lib.addCorner(healthBar, 4)
 
-        -- Killer Glow Effect
+        -- Killer glow
         if isKiller then
             local glow = Instance.new("Frame")
-            glow.BackgroundColor3      = constants.COLORS.ESP_KILLER
-            glow.BackgroundTransparency= 0.88
-            glow.BorderSizePixel       = 0
-            glow.Size                  = UDim2.new(1.1, 0, 1.3, 0)
-            glow.AnchorPoint           = Vector2.new(0.5, 0.5)
-            glow.Position              = UDim2.new(0.5, 0, 0.5, 0)
-            glow.ZIndex                = -1
-            glow.Parent                = bg
+            glow.BackgroundColor3       = constants.COLORS.ESP_KILLER
+            glow.BackgroundTransparency = 0.88
+            glow.BorderSizePixel        = 0
+            glow.Size                   = UDim2.new(1.1, 0, 1.3, 0)
+            glow.AnchorPoint            = Vector2.new(0.5, 0.5)
+            glow.Position               = UDim2.new(0.5, 0, 0.5, 0)
+            glow.ZIndex                 = -1
+            glow.Parent                 = bg
             Lib.addCorner(glow, 12)
         end
 
         local nameLbl = Instance.new("TextLabel")
-        nameLbl.Name                  = "NameLabel"
-        nameLbl.BackgroundTransparency= 1
-        nameLbl.Position              = UDim2.new(0, 12, 0, 0)
-        nameLbl.Size                  = UDim2.new(1, -16, 1, 0)
-        nameLbl.Font                  = Enum.Font.GothamMedium
-        nameLbl.Text                  = player.Name:upper()
-        nameLbl.TextColor3            = constants.COLORS.SOFT_TEXT
-        nameLbl.TextSize              = 11
-        nameLbl.TextXAlignment        = Enum.TextXAlignment.Left
-        nameLbl.Parent                = bg
+        nameLbl.Name                   = "NameLabel"
+        nameLbl.BackgroundTransparency = 1
+        nameLbl.Position               = UDim2.new(0, 12, 0, 0)
+        nameLbl.Size                   = UDim2.new(1, -16, 1, 0)
+        nameLbl.Font                   = Enum.Font.GothamMedium
+        nameLbl.Text                   = player.Name:upper()
+        nameLbl.TextColor3             = constants.COLORS.SOFT_TEXT
+        nameLbl.TextSize               = 11
+        nameLbl.TextXAlignment         = Enum.TextXAlignment.Left
+        nameLbl.Parent                 = bg
 
         return bb, nameLbl, healthBar
     end
 
+    -- ── Build full ESP for one player ────────────────────────────────
     function ESP.buildESPForPlayer(player)
         if player == LocalPlayer then return end
         pcall(function()
@@ -108,10 +129,11 @@ return function(services, constants, state, Lib)
             local isKiller = char:FindFirstChild("Knife") ~= nil or char:FindFirstChild("Weapon") ~= nil
             local espColor = isKiller and constants.COLORS.ESP_KILLER or constants.COLORS.ESP_FRIENDLY
 
+            -- This call also disconnects the old renderConn for this player
             ESP.destroyPlayerESPObjects(player)
             state.espObjects[player] = {}
 
-            -- Elegant Thin Highlight
+            -- Highlight
             local hl = Instance.new("Highlight")
             hl.FillColor           = espColor
             hl.OutlineColor        = Color3.fromRGB(255, 255, 255)
@@ -120,55 +142,61 @@ return function(services, constants, state, Lib)
             hl.Parent              = char
             table.insert(state.espObjects[player], hl)
 
-            local bb, nameLbl, hb = ESP.buildBillboard(player, head, rootPart, espColor, isKiller)
+            local bb, nameLbl, hb = ESP.buildBillboard(player, head, rootPart, isKiller)
             table.insert(state.espObjects[player], bb)
 
+            -- Per-player render connection (stored in dict, not list)
             local renderConn
             renderConn = RunService.RenderStepped:Connect(function()
-                if not bb.Parent or not rootPart.Parent then
+                if not (bb.Parent and rootPart.Parent) then
                     renderConn:Disconnect()
+                    state.espRenderConns[player] = nil
                     return
                 end
-                local dist  = (Camera.CFrame.Position - rootPart.Position).Magnitude
-                local baseScale = math.clamp(280 / dist, 0.4, 1.4)
-                
-                local killerMult = 1.0
-                if isKiller and dist < 80 then
-                    killerMult = 1.0 + ((80 - dist) / 80) * 0.5
-                end
-                
-                local finalScale = baseScale * killerMult
-                nameLbl.TextSize = math.floor(11 * finalScale)
-                bb.Size = UDim2.new(0, math.floor(140 * finalScale), 0, math.floor(24 * finalScale))
+                local Camera = services.getCamera()
+                local dist   = (Camera.CFrame.Position - rootPart.Position).Magnitude
+                local base   = math.clamp(280 / dist, 0.4, 1.4)
+                local mult   = (isKiller and dist < 80) and (1 + ((80 - dist) / 80) * 0.5) or 1
+                local scale  = base * mult
+
+                nameLbl.TextSize = math.floor(11 * scale)
+                bb.Size = UDim2.new(0, math.floor(140 * scale), 0, math.floor(24 * scale))
                 bb.Enabled = state.nameTitleEnabled
 
-                -- Health update
-                local hpRatio = math.clamp(human.Health / human.MaxHealth, 0, 1)
+                local hpRatio = math.clamp(human.Health / math.max(human.MaxHealth, 1), 0, 1)
                 hb.Size = UDim2.new(1, 0, hpRatio, 0)
                 hb.Position = UDim2.new(0, 0, 1 - hpRatio, 0)
                 hb.BackgroundColor3 = Color3.fromHSV(hpRatio * 0.35, 0.9, 0.9)
             end)
-            table.insert(state.espRenderConns, renderConn)
+
+            -- Store per-player (key = player object)
+            state.espRenderConns[player] = renderConn
         end)
     end
 
+    -- ── Refresh all players' ESP ──────────────────────────────────────
     function ESP.refreshAllESP()
         if not state.espEnabled then return end
-        if state.espRenderConns then
-            for _, conn in ipairs(state.espRenderConns) do
-                if conn then pcall(conn.Disconnect, conn) end
-            end
-        end
-        state.espRenderConns = {}
         for _, p in ipairs(Players:GetPlayers()) do
             if p ~= LocalPlayer then ESP.buildESPForPlayer(p) end
         end
     end
 
+    -- ── Toggle ───────────────────────────────────────────────────────
     function ESP.togglePlayerESP()
         state.espEnabled = not state.espEnabled
         Lib.setToggleState(state.espButton, state.espEnabled)
-        if not state.espEnabled then ESP.clearAllPlayerESP() return end
+
+        if not state.espEnabled then
+            ESP.clearAllPlayerESP()
+            return
+        end
+
+        -- Guard: clear old heartbeat before creating new one
+        if state.espHeartbeatConn then
+            pcall(function() state.espHeartbeatConn:Disconnect() end)
+            state.espHeartbeatConn = nil
+        end
 
         ESP.refreshAllESP()
         state.espLastRefresh = tick()
@@ -186,6 +214,9 @@ return function(services, constants, state, Lib)
             if not state.espEnabled or player == LocalPlayer then return end
             task.wait(1)
             ESP.buildESPForPlayer(player)
+            if state.espCharConns[player] then
+                pcall(function() state.espCharConns[player]:Disconnect() end)
+            end
             state.espCharConns[player] = player.CharacterAdded:Connect(function()
                 task.wait(0.5)
                 ESP.buildESPForPlayer(player)
@@ -195,14 +226,16 @@ return function(services, constants, state, Lib)
         state.espPlayerRemovingConn = Players.PlayerRemoving:Connect(function(player)
             ESP.destroyPlayerESPObjects(player)
             if state.espCharConns[player] then
-                pcall(state.espCharConns[player].Disconnect, state.espCharConns[player])
+                pcall(function() state.espCharConns[player]:Disconnect() end)
                 state.espCharConns[player] = nil
             end
         end)
 
         for _, p in ipairs(Players:GetPlayers()) do
             if p ~= LocalPlayer then
-                if state.espCharConns[p] then pcall(state.espCharConns[p].Disconnect, state.espCharConns[p]) end
+                if state.espCharConns[p] then
+                    pcall(function() state.espCharConns[p]:Disconnect() end)
+                end
                 state.espCharConns[p] = p.CharacterAdded:Connect(function()
                     task.wait(0.5)
                     ESP.buildESPForPlayer(p)
@@ -211,6 +244,7 @@ return function(services, constants, state, Lib)
         end
     end
 
+    -- ── Name Title Toggle ────────────────────────────────────────────
     function ESP.toggleNameTitle()
         state.nameTitleEnabled = not state.nameTitleEnabled
         Lib.setToggleState(state.nameButton, state.nameTitleEnabled)
