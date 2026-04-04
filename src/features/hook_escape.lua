@@ -1,157 +1,153 @@
 -- ╔══════════════════════════════════════════════════════╗
--- ║  HOOK ESCAPE — Auto Camp Escape                      ║
+-- ║  HOOK ESCAPE — Auto Camp / Skill Check Pasing        ║
 -- ║                                                      ║
--- ║  Mekanisme game:                                     ║
--- ║   • Saat digantung di hook, ada chance kecil (4%)   ║
--- ║     untuk kabur sendiri                              ║
--- ║   • Jika killer CAMPING (dekat hook), anti-camp      ║
--- ║     mechanic aktif → chance naik ke 100%             ║
--- ║   • Fitur ini: auto-tekan tombol escape berkala      ║
--- ║     sambil menunggu chance 100% aktif                ║
--- ║                                                      ║
--- ║  Deteksi "sedang digantung":                         ║
--- ║   1. Cek Attribute / BoolValue "Hooked" di karakter  ║
--- ║   2. Cek Humanoid immobile + dekat hook object       ║
--- ║   3. Cek HumanoidState = PlatformStanding           ║
+-- ║  Mekanisme Game:                                     ║
+-- ║  Harus menahan tombol/klik untuk mengisi bar,        ║
+-- ║  kemudian MELEPAS tepat di 100%.                     ║
+-- ║  Kurang atau lebih dari 100% = gagal.                ║
 -- ╚══════════════════════════════════════════════════════╝
 return function(services, constants, state, Lib)
-    local RunService   = services.RunService
-    local LocalPlayer  = services.LocalPlayer
-    local Workspace    = services.Workspace
-
-    -- VirtualInputManager untuk simulasi key press
+    local RunService  = services.RunService
+    local LocalPlayer = services.LocalPlayer
+    
     local vim = nil
     pcall(function() vim = game:GetService("VirtualInputManager") end)
 
     local HE = {}
 
-    -- ── Internal: apakah player sedang di-hook ────────────────────────
-    local HOOK_ATTRS  = {"Hooked","IsHooked","OnHook","Hung","Sacrifice","Caught"}
-    local HOOK_KWDS   = {"hook","hang","hung","sacrific","caught","impale"}
+    -- ── Deteksi Bar 100% (Generic & Heuristic) ────────────────────────
+    local function isEscapeBarFull()
+        local gui = LocalPlayer:FindFirstChild("PlayerGui")
+        if not gui then return false end
 
-    local function isHooked()
-        local char = LocalPlayer.Character
-        if not char then return false end
-
-        -- Method 1: Roblox Attributes pada Character
-        for _, attr in ipairs(HOOK_ATTRS) do
-            local ok, val = pcall(function() return char:GetAttribute(attr) end)
-            if ok and val == true then return true end
-        end
-
-        -- Method 2: BoolValue / StringValue bertanda hooked
-        for _, child in ipairs(char:GetDescendants()) do
-            local n = child.Name:lower()
-            local isHookName = false
-            for _, kw in ipairs(HOOK_KWDS) do
-                if n:find(kw) then isHookName = true break end
+        local foundFull = false
+        
+        for _, child in ipairs(gui:GetDescendants()) do
+            -- Abaikan UI Core milik script kita
+            if child.Name == "VD_ESPMenu_v2" or child:IsA("ScreenGui") and child.Name:find("VD_") then
+                continue
             end
-            if isHookName then
-                if child:IsA("BoolValue") and child.Value then return true end
-                if child:IsA("StringValue") then
-                    local v = child.Value:lower()
-                    if v == "true" or v == "hooked" or v == "hung" then return true end
+            
+            -- Cek TextLabel yang berisi indikator 100% atau persentase penuh
+            if child:IsA("TextLabel") and child.Visible then
+                local txt = child.Text:lower()
+                if txt:find("100%%") or txt:find("100/100") then
+                    -- Pastikan ini bar untuk unhook/escape/camp
+                    if txt:find("escape") or txt:find("unhook") or txt:find("camp") or txt:find("chance") or txt:find("struggle") then
+                        foundFull = true
+                        break
+                    end
+                end
+            end
+            
+            -- Cek UI Bar (Frame) yang ukurannya terisi penuh
+            if child:IsA("Frame") and child.Visible then
+                -- Biasa bar mengisi frame, scale X mendekati 1.0 (100%)
+                local scaleX = child.Size.X.Scale
+                if scaleX >= 0.99 and scaleX <= 1.0 then
+                    local n = child.Name:lower()
+                    if n:find("bar") or n:find("fill") or n:find("prog") or n:find("meter") or n:find("camp") then
+                        -- Syarat: tinggi bar cukup kecil (biasanya bar itu horizontal)
+                        if child.AbsoluteSize.Y > 0 and child.AbsoluteSize.Y < 50 then
+                            foundFull = true
+                            break
+                        end
+                    end
+                end
+            end
+            
+            -- Cek NumberValue/IntValue jika game menyimpan progress di UI
+            if child:IsA("NumberValue") or child:IsA("IntValue") then
+                if child.Value >= 100 or (child.Value >= 0.99 and child.Value <= 1.0) then
+                    local n = child.Name:lower()
+                    if n:find("prog") or n:find("camp") or n:find("escape") or n:find("chance") then
+                        foundFull = true
+                        break
+                    end
                 end
             end
         end
 
-        -- Method 3: HumanoidState = PlatformStanding (Roblox standard saat hook)
-        local hum = char:FindFirstChildOfClass("Humanoid")
-        if hum then
-            local st = hum:GetState()
-            if st == Enum.HumanoidStateType.PlatformStanding then
-                return true
-            end
-            -- Fallback: WalkSpeed=0 dan JumpPower=0 + dekat hook object
-            if hum.WalkSpeed == 0 and hum.JumpPower == 0 and hum.Health > 0 then
-                local root = char:FindFirstChild("HumanoidRootPart")
-                if root then
-                    for _, obj in ipairs(Workspace:GetDescendants()) do
-                        local n = obj.Name:lower()
-                        if obj:IsA("BasePart") then
-                            for _, kw in ipairs(HOOK_KWDS) do
-                                if n:find(kw) then
-                                    if (root.Position - obj.Position).Magnitude < 8 then
-                                        return true
-                                    end
-                                end
-                            end
+        -- Cek progress value di Character
+        if not foundFull and LocalPlayer.Character then
+            for _, child in ipairs(LocalPlayer.Character:GetDescendants()) do
+                if child:IsA("NumberValue") or child:IsA("IntValue") then
+                    if child.Value >= 100 or (child.Value >= 0.99 and child.Value <= 1.0) then
+                        local n = child.Name:lower()
+                        if n:find("prog") or n:find("camp") or n:find("escape") or n:find("chance") or n:find("struggle") then
+                            foundFull = true
+                            break
                         end
                     end
                 end
             end
         end
 
-        return false
+        return foundFull
     end
 
-    -- ── Internal: percobaan kabur dari hook ───────────────────────────
-    local function attemptEscape()
-        local char = LocalPlayer.Character
-        if not char then return end
-        local root = char:FindFirstChild("HumanoidRootPart")
-        if not root then return end
+    -- ── Aksi Utama: Auto Hold & Release tepat di 100% ──────────────────
+    function HE.performEscape()
+        if state.isEscaping then return end
+        state.isEscaping = true
+        
+        Lib.setButtonRunning(state.autoEscapeButton, true, "HOLDING...")
 
-        -- Cari ProximityPrompt di hook object terdekat
-        -- (fireproximityprompt = executor function yang bypass jarak/cooldown)
-        for _, obj in ipairs(Workspace:GetDescendants()) do
-            local n = obj.Name:lower()
-            local isHookObj = false
-            for _, kw in ipairs(HOOK_KWDS) do
-                if n:find(kw) then isHookObj = true break end
+        -- 1. Tekan (Hold) E
+        if vim then
+            pcall(function() vim:SendKeyEvent(true, Enum.KeyCode.E, false, game) end)
+            -- Sebagai tambahan jika game butuh klik mouse (tahan) alih-alih E
+            pcall(function() mouse1press() end)
+        end
+
+        local MAX_HOLD_TIME = 8 -- Jangan hold lebih dari 8 detik (timeout)
+        local tStart = tick()
+
+        state.autoEscapeConn = RunService.RenderStepped:Connect(function()
+            local t = tick()
+            local isFinished = false
+
+            -- Evaluasi jika bar menyentuh 100%
+            if isEscapeBarFull() then
+                isFinished = true
             end
 
-            if isHookObj then
-                local refPart = obj:IsA("BasePart") and obj
-                             or obj:FindFirstChildOfClass("BasePart")
-                if refPart and (root.Position - refPart.Position).Magnitude < 15 then
-                    -- Cari ProximityPrompt di obj dan anak-anaknya
-                    local prompt = obj:FindFirstChildOfClass("ProximityPrompt")
-                                or obj:FindFirstChild("ProximityPrompt", true)
-                    if prompt then
-                        -- fireproximityprompt = exploit executor API
-                        pcall(function() fireproximityprompt(prompt) end)
-                        return
-                    end
+            -- Evaluasi timeout safety
+            if t - tStart >= MAX_HOLD_TIME then
+                isFinished = true
+            end
+
+            if isFinished then
+                -- 2. Lepas dengan Cepat! (Release persis di 100%)
+                if vim then
+                    pcall(function() vim:SendKeyEvent(false, Enum.KeyCode.E, false, game) end)
+                    pcall(function() mouse1release() end)
+                end
+
+                if state.autoEscapeConn then
+                    state.autoEscapeConn:Disconnect()
+                    state.autoEscapeConn = nil
+                end
+
+                state.isEscaping = false
+                Lib.setButtonRunning(state.autoEscapeButton, false)
+            end
+        end)
+    end
+
+    -- Debug tool optional
+    _G.VD_DebugEscapeUI = function()
+        print("[VD-Debug] Mencari bar progress Hook / Camp...")
+        local gui = LocalPlayer:FindFirstChild("PlayerGui")
+        if gui then
+            for _, child in ipairs(gui:GetDescendants()) do
+                if child:IsA("Frame") and child.Visible and child.Size.X.Scale > 0 and child.Size.X.Scale < 1 then
+                    print(("  [Frame] '%s' -> Scale = %.2f"):format(child.Name, child.Size.X.Scale))
+                elseif (child:IsA("NumberValue") or child:IsA("IntValue")) and child.Value > 0 then
+                    print(("  [Value] '%s' -> %s"):format(child.Name, tostring(child.Value)))
                 end
             end
         end
-
-        -- Fallback: simulasi klik E (tombol interaksi default Roblox)
-        if vim then
-            pcall(function() vim:SendKeyEvent(true,  Enum.KeyCode.E, false, game) end)
-            task.wait(0.05)
-            pcall(function() vim:SendKeyEvent(false, Enum.KeyCode.E, false, game) end)
-        end
-    end
-
-    -- ── Toggle Auto Escape ────────────────────────────────────────────
-    function HE.toggleAutoEscape()
-        state.autoEscapeEnabled = not state.autoEscapeEnabled
-        Lib.setToggleState(state.autoEscapeButton, state.autoEscapeEnabled)
-
-        -- Hentikan loop lama
-        if state.autoEscapeConn then
-            pcall(function() state.autoEscapeConn:Disconnect() end)
-            state.autoEscapeConn = nil
-        end
-
-        if not state.autoEscapeEnabled then return end
-
-        -- Interval antar percobaan escape (0.5 detik)
-        local ESCAPE_INTERVAL = 0.5
-        local lastTry         = 0
-
-        state.autoEscapeConn = RunService.Heartbeat:Connect(function()
-            if not state.autoEscapeEnabled then return end
-            local t = tick()
-            if t - lastTry < ESCAPE_INTERVAL then return end
-            lastTry = t
-
-            if isHooked() then
-                attemptEscape()
-            end
-        end)
     end
 
     return HE

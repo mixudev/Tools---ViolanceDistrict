@@ -143,11 +143,10 @@ Lib.createDivider(MainUI.ContentFrame)
 -- ── Survival section ──────────────────────────────────────────────────
 Lib.createSectionLabel(MainUI.ContentFrame, "Survival")
 
--- Auto-tekan tombol escape saat digantung di hook.
--- Manfaatkan anti-camp mechanic: jika killer camping, chance kabur = 100%
-state.autoEscapeButton = Lib.createToggle(MainUI.ContentFrame, "Auto Escape (Hook)", function()
-    HookEscape.toggleAutoEscape()
-    Lib.showToast(SG, state.autoEscapeEnabled and "Auto Escape  ON" or "Auto Escape  OFF")
+-- Auto Escape: saat digantung di hook, ini akan auto-hold "E"
+-- dan mencari indikator 100% di layar/sistem sebelum melepas (skill check timing).
+state.autoEscapeButton = Lib.createButton(MainUI.ContentFrame, "Auto Escape (Hook - 100%)", function()
+    HookEscape.performEscape()
 end)
 -- ╔══════════════════════════════════════════════════════╗
 -- ║  6. WINDOW CONTROLS                                   ║

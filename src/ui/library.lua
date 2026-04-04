@@ -192,6 +192,100 @@ return function(services)
     end
 
     -- ═══════════════════════════════════════════════════════════════
+    --  ACTION BUTTON  (satu kali klik, bukan toggle on/off)
+    --  Cocok untuk aksi seperti "Escape Hook", "Teleport", dll.
+    -- ═══════════════════════════════════════════════════════════════
+
+    function Lib.createButton(parent, name, callback)
+        local btn = Instance.new("TextButton")
+        btn.Name                   = name
+        btn.BackgroundColor3       = Color3.fromRGB(10, 110, 210)
+        btn.BackgroundTransparency = 0.05
+        btn.BorderSizePixel        = 0
+        btn.Size                   = UDim2.new(1, 0, 0, 40)
+        btn.Text                   = ""
+        btn.AutoButtonColor        = false
+        btn.Parent                 = parent
+        Lib.addCorner(btn, 7)
+        Lib.addStroke(btn, Color3.fromRGB(0, 170, 255), 1, 0.45)
+
+        -- Label
+        local lbl = Instance.new("TextLabel")
+        lbl.Name                   = "Label"
+        lbl.BackgroundTransparency = 1
+        lbl.Position               = UDim2.new(0, 14, 0, 0)
+        lbl.Size                   = UDim2.new(1, -40, 1, 0)
+        lbl.Font                   = Enum.Font.GothamBold
+        lbl.Text                   = name
+        lbl.TextColor3             = Color3.fromRGB(220, 235, 255)
+        lbl.TextSize               = 12
+        lbl.TextXAlignment         = Enum.TextXAlignment.Left
+        lbl.Parent                 = btn
+
+        -- Arrow icon (kanan)
+        local icon = Instance.new("TextLabel")
+        icon.Name                   = "Icon"
+        icon.BackgroundTransparency = 1
+        icon.AnchorPoint            = Vector2.new(1, 0.5)
+        icon.Position               = UDim2.new(1, -12, 0.5, 0)
+        icon.Size                   = UDim2.new(0, 18, 0, 18)
+        icon.Font                   = Enum.Font.GothamBold
+        icon.Text                   = "▶"
+        icon.TextColor3             = Color3.fromRGB(130, 195, 255)
+        icon.TextSize               = 10
+        icon.Parent                 = btn
+
+        -- Hover
+        btn.MouseEnter:Connect(function()
+            Lib.tween(btn, 0.12, {
+                BackgroundColor3       = Color3.fromRGB(0, 140, 240),
+                BackgroundTransparency = 0,
+            })
+        end)
+        btn.MouseLeave:Connect(function()
+            Lib.tween(btn, 0.12, {
+                BackgroundColor3       = Color3.fromRGB(10, 110, 210),
+                BackgroundTransparency = 0.05,
+            })
+        end)
+
+        -- Click ripple + callback
+        btn.MouseButton1Click:Connect(function()
+            Lib.tween(btn, 0.06, { BackgroundColor3 = Color3.fromRGB(0, 200, 255) })
+            task.delay(0.08, function()
+                Lib.tween(btn, 0.2, { BackgroundColor3 = Color3.fromRGB(10, 110, 210) })
+            end)
+            callback()
+        end)
+
+        return btn
+    end
+
+    --- Ubah tampilan button saat sedang running / idle.
+    --- running=true  → tombol redup + label berubah + icon spinner
+    --- running=false → kembali normal
+    function Lib.setButtonRunning(btn, running, runningText)
+        if not btn then return end
+        local lbl  = btn:FindFirstChild("Label")
+        local icon = btn:FindFirstChild("Icon")
+        if running then
+            Lib.tween(btn, 0.15, {
+                BackgroundColor3       = Color3.fromRGB(5, 70, 130),
+                BackgroundTransparency = 0.2,
+            })
+            if lbl  then lbl.Text  = runningText or "RUNNING..." end
+            if icon then icon.Text = "◼" end
+        else
+            Lib.tween(btn, 0.15, {
+                BackgroundColor3       = Color3.fromRGB(10, 110, 210),
+                BackgroundTransparency = 0.05,
+            })
+            if lbl  then lbl.Text  = btn.Name end
+            if icon then icon.Text = "▶" end
+        end
+    end
+
+    -- ═══════════════════════════════════════════════════════════════
     --  SET TOGGLE STATE  (animates the pill switch)
     -- ═══════════════════════════════════════════════════════════════
 
