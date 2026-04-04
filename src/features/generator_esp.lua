@@ -5,58 +5,68 @@ return function(services, constants, state, Lib)
     local GEN = {}
 
     -- ══════════════════════════════════════════════════════════════════
-    --  DETEKSI STATUS GENERATOR
+    --  DETEKSI STATUS GENERATOR (Violence District)
     --
-    --  Logic: generator dianggap "repaired" jika SALAH SATU kondisi
-    --  terpenuhi di antara semua descendant-nya (bukan semua harus match).
+    --  Game ini seperti Dead by Daylight:
+    --    - Generator punya progress bar 0→100
+    --    - Dianggap SELESAI hanya jika progress = 100 (bukan setengah-setengah)
+    --    - Lampu HIJAU menyala terang saat generator selesai diperbaiki
     --
-    --  Urutan prioritas:
-    --    1. BoolValue  bernama *repaired / fixed / complete / done*  = true
-    --    2. NumberValue bernama *repaired / fixed / complete / done* > 0
-    --    3. NumberValue bernama *progress* >= 1  (ada progress apapun)
-    --    4. Heuristik lampu: ada PointLight/SpotLight aktif yang terlihat
-    --       hijau (G dominan) ATAU sangat terang (Brightness > 2)
+    --  Priority check:
+    --    1. BoolValue "repaired/fixed/complete/done/on" = true
+    --    2. NumberValue progress: >= 100 (skala 0-100) ATAU >= 0.99 (skala 0-1)
+    --    3. Lampu HIJAU terang (bukan sembarang lampu)
     -- ══════════════════════════════════════════════════════════════════
     function GEN.isGeneratorRepaired(gen)
         for _, child in ipairs(gen:GetDescendants()) do
             local n = child.Name:lower()
 
-            -- Prioritas 1 & 2: named bool/number indicators
-            if n:find("repaired") or n:find("fixed") or n:find("complete") or n:find("done") then
+            -- [1] BoolValue status flag = true
+            if n:find("repaired") or n:find("fixed") or n:find("complete") or n:find("done") or n:find("finish") then
                 if child:IsA("BoolValue") and child.Value then
                     return true
                 end
                 if (child:IsA("IntValue") or child:IsA("NumberValue")) and child.Value > 0 then
                     return true
                 end
+                if child:IsA("StringValue") then
+                    local v = child.Value:lower()
+                    if v == "true" or v == "1" or v == "repaired" or v == "done" then
+                        return true
+                    end
+                end
             end
 
-            -- Prioritas 3: progress >= 1 (partial juga dihitung repaired di game ini)
-            if n:find("progress") then
-                if (child:IsA("NumberValue") or child:IsA("IntValue")) and child.Value >= 1 then
-                    return true
+            -- [2] Progress value — HARUS penuh, bukan setengah-setengah
+            --     Skala 0-100: butuh >= 100
+            --     Skala 0-1  : butuh >= 0.99
+            if n:find("progress") or n:find("repair") or n:find("stage") or n:find("charge") then
+                if child:IsA("NumberValue") or child:IsA("IntValue") then
+                    local v = child.Value
+                    -- Skala 0-100
+                    if v >= 100 then return true end
+                    -- Skala 0-1 (normalized)
+                    if v > 1 then
+                        -- nilai 1-99 pada skala 0-100 = belum selesai
+                    elseif v >= 0.99 then
+                        return true
+                    end
                 end
             end
         end
 
-        -- Prioritas 4: heuristik visual — lampu hijau / lampu sangat terang
-        -- Menggunakan OR, bukan AND (cukup salah satu tanda)
+        -- [3] Heuristik visual: lampu HIJAU TERANG (bukan sembarang lampu)
+        --     Lampu selama proses repair biasanya putih/redup
+        --     Lampu setelah selesai = hijau cerah dan cukup terang
         for _, child in ipairs(gen:GetDescendants()) do
-            if (child:IsA("PointLight") or child:IsA("SpotLight")) and child.Enabled then
+            if (child:IsA("PointLight") or child:IsA("SpotLight") or child:IsA("SurfaceLight")) and child.Enabled then
                 local c  = child.Color
                 local br = child.Brightness
-                -- Lampu berwarna hijau (channel G dominan)
-                if c.G > 0.35 and c.G > c.R * 1.15 and br > 0.3 then
+                -- Hijau JELAS: G channel >> R dan B, dan cukup terang
+                local isGreen = c.G > 0.5 and c.G > (c.R * 2.0) and c.G > (c.B * 1.5)
+                if isGreen and br >= 1.5 then
                     return true
                 end
-                -- Lampu sangat terang (menyala aktif) tanpa spesifik warna
-                if br > 2.5 then
-                    return true
-                end
-            end
-            -- Sound yang sedang berjalan juga cukup sebagai tanda
-            if child:IsA("Sound") and child.IsPlaying and child.Volume > 0.15 then
-                return true
             end
         end
 
@@ -82,11 +92,10 @@ return function(services, constants, state, Lib)
     function GEN.findGenerators()
         if state.genCachedObjects then return state.genCachedObjects end
 
-        local found        = {}
+        local found         = {}
         local seenAncestors = {}
 
         for _, obj in ipairs(Workspace:GetDescendants()) do
-            -- Skip jika ancestor-nya sudah masuk daftar (cegah double-highlight)
             local skip   = false
             local parent = obj.Parent
             while parent and parent ~= Workspace do
@@ -106,14 +115,10 @@ return function(services, constants, state, Lib)
         return found
     end
 
-    -- ── Update highlight tiap generator (NO billboard text) ───────────
-    --  Bedanya hanya dari warna:
-    --    Hijau  (GEN_REPAIRED)     = sudah diperbaiki
-    --    Orange (GEN_NEEDS_REPAIR) = belum diperbaiki
+    -- ── Update highlight (warna = status, tanpa teks) ─────────────────
     function GEN.updateGenerators()
         if not state.genESPEnabled then return end
 
-        -- Hapus highlight lama
         for _, obj in ipairs(state.genESPObjects) do
             if obj and obj.Parent then pcall(obj.Destroy, obj) end
         end
@@ -123,7 +128,7 @@ return function(services, constants, state, Lib)
 
         for _, obj in ipairs(generators) do
             if not obj or not obj.Parent then
-                state.genCachedObjects = nil  -- invalidate jika ada yang hilang
+                state.genCachedObjects = nil
                 continue
             end
 
@@ -133,24 +138,64 @@ return function(services, constants, state, Lib)
 
                 local hl = Instance.new("Highlight")
                 hl.FillColor           = fillColor
-                hl.OutlineColor        = fillColor  -- outline sesuai status juga
-                hl.FillTransparency    = repaired and 0.75 or 0.60
-                hl.OutlineTransparency = repaired and 0.30 or 0.20
+                hl.OutlineColor        = fillColor
+                hl.FillTransparency    = repaired and 0.72 or 0.58
+                hl.OutlineTransparency = repaired and 0.25 or 0.18
                 hl.Parent              = obj
                 table.insert(state.genESPObjects, hl)
             end)
         end
     end
 
+    -- ── Debug: inspect generator terdekat ────────────────────────────
+    function GEN.debugNearestGenerator()
+        local lp   = services.Players and services.Players.LocalPlayer
+        local char = lp and lp.Character
+        local root = char and char:FindFirstChild("HumanoidRootPart")
+        if not root then warn("[VD-Debug] Tidak ada karakter.") return end
+
+        local nearest, nearestDist = nil, math.huge
+        for _, obj in ipairs(Workspace:GetDescendants()) do
+            local n = obj.Name:lower()
+            if (n:find("generator") or n == "gen") and (obj:IsA("Model") or obj:IsA("BasePart")) then
+                local part = obj:IsA("Model") and (obj.PrimaryPart or obj:FindFirstChildOfClass("BasePart")) or obj
+                if part then
+                    local d = (root.Position - part.Position).Magnitude
+                    if d < nearestDist then nearestDist = d nearest = obj end
+                end
+            end
+        end
+
+        if not nearest then warn("[VD-Debug] Generator tidak ditemukan.") return end
+
+        print(("[VD-Debug] '%s' | %.1f studs | Status: %s"):format(
+            nearest.Name, nearestDist,
+            GEN.isGeneratorRepaired(nearest) and "REPAIRED ✓" or "UNREPAIRED ✗"))
+        print("[VD-Debug] Descendants:")
+        for _, child in ipairs(nearest:GetDescendants()) do
+            local val = "—"
+            pcall(function()
+                if child:IsA("ValueBase") then
+                    val = tostring(child.Value)
+                elseif child:IsA("Light") then
+                    val = ("Enabled=%s Brightness=%.2f RGB=(%d,%d,%d)"):format(
+                        tostring(child.Enabled), child.Brightness,
+                        child.Color.R*255, child.Color.G*255, child.Color.B*255)
+                elseif child:IsA("Sound") then
+                    val = ("Playing=%s Volume=%.2f"):format(tostring(child.IsPlaying), child.Volume)
+                end
+            end)
+            print(("  [%s] %s = %s"):format(child.ClassName, child.Name, val))
+        end
+    end
+    _G.VD_GenDebug = GEN.debugNearestGenerator
+
     -- ── Toggle ───────────────────────────────────────────────────────
     function GEN.toggleGenESP()
         state.genESPEnabled = not state.genESPEnabled
         Lib.setToggleState(state.genButton, state.genESPEnabled)
 
-        if not state.genESPEnabled then
-            GEN.clearGenESP()
-            return
-        end
+        if not state.genESPEnabled then GEN.clearGenESP() return end
 
         GEN.updateGenerators()
         local lastUpdate = tick()

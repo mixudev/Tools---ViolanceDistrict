@@ -1,20 +1,21 @@
 return function(services, constants, state, Lib)
-    -- ── ScreenGui ───────────────────────────────────────────────────
     local ScreenGui = Instance.new("ScreenGui")
     ScreenGui.Name           = "VD_ESPMenu_v2"
     ScreenGui.ResetOnSpawn   = false
     ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
     ScreenGui.Parent         = game.CoreGui
 
-    -- ── Main Frame ──────────────────────────────────────────────────
+    -- ── Main Frame — auto-height, no scroll ─────────────────────────
     local MainFrame = Instance.new("Frame")
     MainFrame.BackgroundColor3       = constants.COLORS.BACKGROUND
     MainFrame.BackgroundTransparency = 0.06
     MainFrame.BorderSizePixel        = 0
     MainFrame.Position               = UDim2.new(0.4, 0, 0.3, 0)
-    MainFrame.Size                   = UDim2.new(0, 280, 0, constants.FRAME_ORIGINAL_H)
+    MainFrame.Size                   = UDim2.new(0, 270, 0, 0)  -- height = auto
+    MainFrame.AutomaticSize          = Enum.AutomaticSize.Y      -- grows with content
     MainFrame.Active                 = true
     MainFrame.Draggable              = true
+    MainFrame.ClipsDescendants       = false
     MainFrame.Parent                 = ScreenGui
     Lib.addCorner(MainFrame, 10)
     Lib.addStroke(MainFrame, Color3.fromRGB(255, 255, 255), 1, 0.92)
@@ -34,15 +35,6 @@ return function(services, constants, state, Lib)
     TitleBar.BackgroundTransparency = 1
     TitleBar.Size                   = UDim2.new(1, 0, 0, 50)
     TitleBar.Parent                 = MainFrame
-
-    -- Thin separator below title bar
-    local titleSep = Instance.new("Frame")
-    titleSep.BackgroundColor3       = Color3.fromRGB(255, 255, 255)
-    titleSep.BackgroundTransparency = 0.93
-    titleSep.BorderSizePixel        = 0
-    titleSep.Position               = UDim2.new(0, 12, 0, 49)
-    titleSep.Size                   = UDim2.new(1, -24, 0, 1)
-    titleSep.Parent                 = MainFrame
 
     local TitleLabel = Instance.new("TextLabel")
     TitleLabel.BackgroundTransparency = 1
@@ -77,7 +69,6 @@ return function(services, constants, state, Lib)
     MinimizeButton.TextSize         = 14
     MinimizeButton.AutoButtonColor  = false
     MinimizeButton.Parent           = TitleBar
-
     MinimizeButton.MouseEnter:Connect(function()
         Lib.tween(MinimizeButton, 0.12, { TextColor3 = Color3.fromRGB(220, 220, 240) })
     end)
@@ -96,7 +87,6 @@ return function(services, constants, state, Lib)
     CloseButton.TextSize         = 20
     CloseButton.AutoButtonColor  = false
     CloseButton.Parent           = TitleBar
-
     CloseButton.MouseEnter:Connect(function()
         Lib.tween(CloseButton, 0.12, { TextColor3 = Color3.fromRGB(255, 80, 100) })
     end)
@@ -104,21 +94,29 @@ return function(services, constants, state, Lib)
         Lib.tween(CloseButton, 0.12, { TextColor3 = Color3.fromRGB(140, 140, 160) })
     end)
 
-    -- ── Content (ScrollingFrame + UIListLayout) ─────────────────────
-    local ContentFrame = Instance.new("ScrollingFrame")
+    -- Thin separator below title
+    local titleSep = Instance.new("Frame")
+    titleSep.BackgroundColor3       = Color3.fromRGB(255, 255, 255)
+    titleSep.BackgroundTransparency = 0.93
+    titleSep.BorderSizePixel        = 0
+    titleSep.Position               = UDim2.new(0, 10, 0, 49)
+    titleSep.Size                   = UDim2.new(1, -20, 0, 1)
+    titleSep.Parent                 = MainFrame
+
+    -- ── Content Frame — auto-height, no scroll ──────────────────────
+    -- AutomaticSize.Y makes this frame grow to fit all its children.
+    -- UIListLayout stacks items vertically.
+    local ContentFrame = Instance.new("Frame")
     ContentFrame.BackgroundTransparency = 1
     ContentFrame.BorderSizePixel        = 0
     ContentFrame.Position               = UDim2.new(0, 10, 0, 56)
-    ContentFrame.Size                   = UDim2.new(1, -20, 1, -64)
-    ContentFrame.CanvasSize             = UDim2.new(0, 0, 0, 0)
-    ContentFrame.AutomaticCanvasSize    = Enum.AutomaticSize.Y
-    ContentFrame.ScrollBarThickness     = 3
-    ContentFrame.ScrollBarImageColor3   = Color3.fromRGB(70, 70, 88)
+    ContentFrame.Size                   = UDim2.new(1, -20, 0, 0)  -- height = auto
+    ContentFrame.AutomaticSize          = Enum.AutomaticSize.Y
     ContentFrame.Parent                 = MainFrame
 
-    -- UIListLayout — auto-stacks all toggles/labels/dividers
+    -- Bottom padding inside ContentFrame
     Lib.setupListLayout(ContentFrame, 4)
-    Lib.addPadding(ContentFrame, 4, 8, 0, 0)
+    Lib.addPadding(ContentFrame, 4, 10, 0, 0)
 
     return {
         ScreenGui      = ScreenGui,

@@ -154,17 +154,20 @@ MainUI.CloseButton.MouseButton1Click:Connect(function()
     MainUI.ScreenGui:Destroy()
 end)
 
--- Minimize / restore
+-- Minimize / restore (compatible with AutomaticSize.Y)
 local minimized = false
 MainUI.MinimizeButton.MouseButton1Click:Connect(function()
     minimized = not minimized
     if minimized then
-        Lib.tween(MainUI.MainFrame, 0.22, { Size = UDim2.new(0, 280, 0, 50) })
+        -- 1. Lock size first, then disable AutomaticSize
+        MainUI.MainFrame.AutomaticSize = Enum.AutomaticSize.None
+        Lib.tween(MainUI.MainFrame, 0.2, { Size = UDim2.new(0, 270, 0, 50) })
         MainUI.ContentFrame.Visible = false
         MainUI.MinimizeButton.Text  = "+"
     else
-        Lib.tween(MainUI.MainFrame, 0.22, { Size = UDim2.new(0, 280, 0, constants.FRAME_ORIGINAL_H) })
+        -- 1. Show content, then re-enable AutomaticSize
         MainUI.ContentFrame.Visible = true
+        MainUI.MainFrame.AutomaticSize = Enum.AutomaticSize.Y
         MainUI.MinimizeButton.Text  = "—"
     end
 end)
