@@ -16,68 +16,82 @@ return function(services, constants, state, Lib)
     local HE = {}
 
     -- ── Deteksi Bar 100% (Generic & Heuristic) ────────────────────────
-    local function isEscapeBarFull()
+    local cachedEscapeElements = {}
+    local lastCacheTime = 0
+
+    local function updateEscapeCache()
+        cachedEscapeElements = {}
+        
+        -- Cache PlayerGui elements
         local gui = LocalPlayer:FindFirstChild("PlayerGui")
-        if not gui then return false end
+        if gui then
+            local desc = gui:GetDescendants()
+            for i = 1, #desc do
+                local child = desc[i]
+                -- Abaikan UI Core milik script kita
+                if child.Name == "VD_ESPMenu_v2" or (child:IsA("ScreenGui") and child.Name:find("VD_")) then
+                    continue
+                end
+                
+                -- Hanya simpan objek yang berpotensi menjadi bar progress
+                if child:IsA("TextLabel") or child:IsA("Frame") or child:IsA("NumberValue") or child:IsA("IntValue") then
+                    table.insert(cachedEscapeElements, child)
+                end
+            end
+        end
+
+        -- Cache Character elements
+        if LocalPlayer.Character then
+            local desc = LocalPlayer.Character:GetDescendants()
+            for i = 1, #desc do
+                local child = desc[i]
+                if child:IsA("NumberValue") or child:IsA("IntValue") then
+                    table.insert(cachedEscapeElements, child)
+                end
+            end
+        end
+    end
+
+    local function isEscapeBarFull()
+        local t = tick()
+        -- Update cache maksimal 3x per detik (sangat ringan dibanding 60x per detik)
+        if t - lastCacheTime > 0.33 then
+            updateEscapeCache()
+            lastCacheTime = t
+        end
 
         local foundFull = false
         
-        for _, child in ipairs(gui:GetDescendants()) do
-            -- Abaikan UI Core milik script kita
-            if child.Name == "VD_ESPMenu_v2" or child:IsA("ScreenGui") and child.Name:find("VD_") then
-                continue
-            end
+        for i = 1, #cachedEscapeElements do
+            local child = cachedEscapeElements[i]
+            -- Skip jika objek sudah dihancurkan game
+            if not child or not child.Parent then continue end
             
-            -- Cek TextLabel yang berisi indikator 100% atau persentase penuh
             if child:IsA("TextLabel") and child.Visible then
                 local txt = child.Text:lower()
                 if txt:find("100%%") or txt:find("100/100") then
-                    -- Pastikan ini bar untuk unhook/escape/camp
                     if txt:find("escape") or txt:find("unhook") or txt:find("camp") or txt:find("chance") or txt:find("struggle") then
                         foundFull = true
                         break
                     end
                 end
-            end
-            
-            -- Cek UI Bar (Frame) yang ukurannya terisi penuh
-            if child:IsA("Frame") and child.Visible then
-                -- Biasa bar mengisi frame, scale X mendekati 1.0 (100%)
+            elseif child:IsA("Frame") and child.Visible then
                 local scaleX = child.Size.X.Scale
                 if scaleX >= 0.99 and scaleX <= 1.0 then
                     local n = child.Name:lower()
                     if n:find("bar") or n:find("fill") or n:find("prog") or n:find("meter") or n:find("camp") then
-                        -- Syarat: tinggi bar cukup kecil (biasanya bar itu horizontal)
                         if child.AbsoluteSize.Y > 0 and child.AbsoluteSize.Y < 50 then
                             foundFull = true
                             break
                         end
                     end
                 end
-            end
-            
-            -- Cek NumberValue/IntValue jika game menyimpan progress di UI
-            if child:IsA("NumberValue") or child:IsA("IntValue") then
+            elseif child:IsA("NumberValue") or child:IsA("IntValue") then
                 if child.Value >= 100 or (child.Value >= 0.99 and child.Value <= 1.0) then
                     local n = child.Name:lower()
-                    if n:find("prog") or n:find("camp") or n:find("escape") or n:find("chance") then
+                    if n:find("prog") or n:find("camp") or n:find("escape") or n:find("chance") or n:find("struggle") then
                         foundFull = true
                         break
-                    end
-                end
-            end
-        end
-
-        -- Cek progress value di Character
-        if not foundFull and LocalPlayer.Character then
-            for _, child in ipairs(LocalPlayer.Character:GetDescendants()) do
-                if child:IsA("NumberValue") or child:IsA("IntValue") then
-                    if child.Value >= 100 or (child.Value >= 0.99 and child.Value <= 1.0) then
-                        local n = child.Name:lower()
-                        if n:find("prog") or n:find("camp") or n:find("escape") or n:find("chance") or n:find("struggle") then
-                            foundFull = true
-                            break
-                        end
                     end
                 end
             end

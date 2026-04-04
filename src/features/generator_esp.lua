@@ -11,84 +11,73 @@ return function(services, constants, state, Lib)
     --  Layer 2: BoolValue/NumberValue bernama repaired/complete/etc
     --  Layer 3: Heuristik lampu HIJAU (G dominant + brightness wajar)
     -- ══════════════════════════════════════════════════════════════════
-    local REPAIR_ATTR  = {"Repaired","IsRepaired","Complete","IsComplete","Fixed","Done","Finished","Activated","Active"}
-    local PROGRESS_KW  = {"progress","repair","complet","charge","fill","percent"}
-    local REPAIRED_KW  = {"repaired","fixed","complet","done","finish","activ"}
+    local REPAIR_ATTR = {"Repaired", "IsRepaired", "Complete", "IsComplete", "Done", "Finished", "Activated"}
+    local PROGRESS_NAMES = {"progress", "repairprogress", "charge", "percent", "percentage", "amount"}
+    local REPAIRED_NAMES = {"repaired", "isrepaired", "complete", "iscomplete", "done", "finished", "activated"}
 
     function GEN.isGeneratorRepaired(gen)
-
         -- ── Layer 1: Roblox Attributes on generator root ──────────────
-        for _, attr in ipairs(REPAIR_ATTR) do
-            local ok, val = pcall(function() return gen:GetAttribute(attr) end)
+        for i = 1, #REPAIR_ATTR do
+            local ok, val = pcall(function() return gen:GetAttribute(REPAIR_ATTR[i]) end)
             if ok and val ~= nil then
                 if val == true then return true end
                 if type(val) == "number" then
-                    if val >= 100 then return true end
-                    if val >= 0.99 and val <= 1.0 then return true end
+                    if val >= 100 or (val >= 0.99 and val <= 1.0) then return true end
                 end
             end
         end
 
-        -- ── Layer 2: Scan semua descendants ───────────────────────────
+        local hasSparksOrSmoke = false
+        local hasRunningSound  = false
+
+        -- ── Layer 2: Scan Descendants (Strict Mode) ───────────────────
         for _, child in ipairs(gen:GetDescendants()) do
             local n = child.Name:lower()
 
-            -- Roblox Attribute pada tiap descendant
-            for _, attr in ipairs(REPAIR_ATTR) do
-                local ok, val = pcall(function() return child:GetAttribute(attr) end)
+            -- Atribut di descendant
+            for i = 1, #REPAIR_ATTR do
+                local ok, val = pcall(function() return child:GetAttribute(REPAIR_ATTR[i]) end)
                 if ok and val ~= nil then
                     if val == true then return true end
-                    if type(val) == "number" and val >= 100 then return true end
-                    if type(val) == "number" and val >= 0.99 and val <= 1.0 then return true end
+                    if type(val) == "number" and (val >= 100 or (val >= 0.99 and val <= 1.0)) then return true end
                 end
             end
 
-            -- BoolValue bernama keyword repaired
+            -- BoolValue (Strict Match)
             if child:IsA("BoolValue") and child.Value then
-                for _, kw in ipairs(REPAIRED_KW) do
-                    if n:find(kw) then return true end
+                for i = 1, #REPAIRED_NAMES do
+                    if n == REPAIRED_NAMES[i] then return true end
                 end
             end
 
-            -- NumberValue / IntValue progress — HARUS penuh
+            -- Number/IntValue (Strict Match)
             if child:IsA("NumberValue") or child:IsA("IntValue") then
                 local v = child.Value
-                local isProgressName = false
-                for _, kw in ipairs(PROGRESS_KW) do
-                    if n:find(kw) then isProgressName = true break end
-                end
-                if isProgressName then
-                    if v >= 100 then return true end     -- skala 0-100
-                    if v >= 0.99 and v <= 1.0 then return true end  -- skala 0-1
+                for i = 1, #PROGRESS_NAMES do
+                    if n == PROGRESS_NAMES[i] then
+                        if v >= 100 or (v >= 0.99 and v <= 1.0) then return true end
+                    end
                 end
             end
-
-            -- StringValue berisi kata selesai
-            if child:IsA("StringValue") then
-                local v = child.Value:lower()
-                for _, kw in ipairs(REPAIRED_KW) do
-                    if v == kw or v == "true" or v == "1" then
-                        for _, kw2 in ipairs(REPAIRED_KW) do
-                            if n:find(kw2) then return true end
-                        end
-                    end
+            
+            -- Tanda visual: Spark/Smoke jika BELUM diperbaiki
+            if child:IsA("ParticleEmitter") and child.Enabled then
+                if n:find("spark") or n:find("smoke") or n:find("fire") or n:find("damage") or n:find("broken") then
+                    hasSparksOrSmoke = true
+                end
+            end
+            
+            -- Tanda audio: Suara mesin berjalan = sudah diperbaiki
+            if child:IsA("Sound") and child.IsPlaying then
+                if n:find("run") or n:find("engine") or n:find("power") or n:find("active") then
+                    hasRunningSound = true
                 end
             end
         end
 
-        -- ── Layer 3: Lampu HIJAU aktif ────────────────────────────────
-        --  Hanya hijau yang jelas: G > R dan G > B, brightness >= 0.8
-        --  Tidak terlalu strict supaya tetap mendeteksi berbagai shade hijau
-        for _, child in ipairs(gen:GetDescendants()) do
-            if (child:IsA("PointLight") or child:IsA("SpotLight") or child:IsA("SurfaceLight"))
-               and child.Enabled then
-                local c  = child.Color
-                local br = child.Brightness
-                -- G harus lebih terang dari R dan B
-                if c.G > c.R and c.G > c.B and br >= 0.8 then
-                    return true
-                end
-            end
+        -- ── Layer 3: Audio/Visual Heuristic (Bantuan Jika State Sulit Dibaca)
+        if hasRunningSound and not hasSparksOrSmoke then
+            return true
         end
 
         return false
