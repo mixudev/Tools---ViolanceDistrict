@@ -87,7 +87,7 @@ local PlayerESP       = loadModule("features/player_esp")(services, constants, s
 local GenESP          = loadModule("features/generator_esp")(services, constants, state, Lib)
 local Movement        = loadModule("features/movement")(services, constants, state, Lib)
 local PlayerListLogic = loadModule("features/player_list_logic")(services, constants, state, Lib, PlayerListUI)
-local HookEscape      = loadModule("features/hook_escape")(services, constants, state, Lib)
+local DroneCam        = loadModule("features/drone_cam")(services, constants, state, Lib)
 
 -- ╔══════════════════════════════════════════════════════╗
 -- ║  5. BUILD MENU CONTENT                                ║
@@ -143,10 +143,11 @@ Lib.createDivider(MainUI.ContentFrame)
 -- ── Survival section ──────────────────────────────────────────────────
 Lib.createSectionLabel(MainUI.ContentFrame, "Survival")
 
--- Auto Escape: saat digantung di hook, ini akan auto-hold "E"
--- dan mencari indikator 100% di layar/sistem sebelum melepas (skill check timing).
-state.autoEscapeButton = Lib.createButton(MainUI.ContentFrame, "Auto Escape (Hook - 100%)", function()
-    HookEscape.performEscape()
+-- Drone Camera (Freecam): Kamera lepas dari avatar.
+-- Kendalikan drone dengan Panah & Q/E. Karakter tetap bisa jalan pakai WASD.
+state.droneButton = Lib.createToggle(MainUI.ContentFrame, "Drone Camera (Freecam)", function()
+    DroneCam.toggleDroneCam()
+    Lib.showToast(SG, state.droneEnabled and "Drone Camera ON" or "Drone Camera OFF")
 end)
 -- ╔══════════════════════════════════════════════════════╗
 -- ║  6. WINDOW CONTROLS                                   ║
@@ -162,8 +163,8 @@ MainUI.CloseButton.MouseButton1Click:Connect(function()
     if state.shiftLockConn then
         pcall(function() state.shiftLockConn:Disconnect() end)
     end
-    if state.autoEscapeConn then
-        pcall(function() state.autoEscapeConn:Disconnect() end)
+    if state.droneConn then
+        pcall(function() state.droneConn:Disconnect() end)
     end
     MainUI.ScreenGui:Destroy()
 end)

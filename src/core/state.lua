@@ -34,8 +34,8 @@ return {
     shiftLockConn          = nil,
     shiftLockOriginalSpeed = nil,
 
-    -- ── Hook Escape ────────────────────────────────────────────────
-    autoEscapeEnabled     = false,
-    autoEscapeButton      = nil,
-    autoEscapeConn        = nil,
+    -- ── Drone Camera ───────────────────────────────────────────────
+    droneEnabled          = false,
+    droneButton           = nil,
+    droneConn             = nil,
 }
